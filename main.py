@@ -14,7 +14,7 @@ def run():
         text = Label(save_prompt, text='Please save your code before running it')
         text.pack()
         return
-    command = f'python {OPENED_FILE_PATH}'
+    command = f'kotlinc -script {OPENED_FILE_PATH}'
     process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
     output, error = process.communicate()
     code_output.insert('1.0', output)
@@ -37,7 +37,7 @@ def is_opened_file_set():
 # Opens file and sets global variable opened_file_path
 def open_file():
     global OPENED_FILE_PATH
-    path = askopenfilename(filetypes=[("Python Files", "*.py")])
+    path = askopenfilename(filetypes=[("Kotlin Files", "*.kts")])
 
     if OPENED_FILE_PATH == path:
         return
@@ -60,7 +60,7 @@ def save():
 # File browser pops up.
 def save_as():
     try:
-        path = asksaveasfilename(defaultextension=".py", filetypes=[("Python Files", "*.py")])
+        path = asksaveasfilename(defaultextension=".kts", filetypes=[("Kotlin Files", "*.kts")])
         do_save_code_to_path(path)
         update_currently_opened_file(path)
     except FileNotFoundError as e:
