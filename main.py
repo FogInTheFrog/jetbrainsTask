@@ -234,6 +234,7 @@ class App(tkinter.Tk):
         self.editor_pane_scrollbar.pack(side=RIGHT, fill=Y)
         self.editor.pack(side=TOP, fill=X, expand=True)
 
+        # Make menu bar appear
         self.config(menu=self.menu_bar)
 
         # Create tags to color some parts of the code or output
