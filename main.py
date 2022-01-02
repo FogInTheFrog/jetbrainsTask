@@ -23,14 +23,17 @@ class Task(threading.Thread):
 # Menu bar functions
 def run(master):
     code = master.editor.get('1.0', END)
+    update_status_bar(master, "Compiling...")
     if not is_opened_file_set():
         save_prompt = Toplevel()
         text = Label(save_prompt, text='Please save your code before running it')
         text.pack()
+        update_status_bar(master, "Unable to run code...")
         return
     # TODO: Communicates to appear here what script is doing
     clear_code_output(master)
     command = f'kotlinc -script {OPENED_FILE_PATH}'
+    update_status_bar(master, "Running...")
     process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
     master.code_output.config(state=NORMAL)
     for c in iter(lambda: process.stdout.read(1), b''):
@@ -38,9 +41,10 @@ def run(master):
         master.code_output.insert(END, c)
 
     for c in iter(lambda: process.stderr.read(1), b''):
-        master.code_output.insert(END, c)
+        master.code_output.insert(END, c, 'error')
 
     master.code_output.config(state=DISABLED)
+    update_status_bar(master, f"Script finished with exit code {process.poll()}")
     print("end of thread")
     # process.kill()
     # exit(0)
@@ -63,6 +67,10 @@ def is_opened_file_set():
         return False
 
     return True
+
+
+def update_status_bar(master, new_status: str):
+    master.status['text'] = new_status + "    "
 
 
 # Opens file and sets global variable opened_file_path
@@ -120,6 +128,18 @@ def new_file():
     print("Not implemented new_file")
 
 
+# Function should be called every t miliseconds to highlight some parts of the code
+def highlight_keywords(master):
+    master.editor.tag_delete("test_tag")
+    master.editor.tag_add("test_tag", "1.10", "1.150")
+    master.editor.tag_config("test_tag", background="blue", foreground="red")
+    try:
+        print(master.editor.index(INSERT))
+    except tkinter.TclError:
+        pass
+    master.after(5000, lambda: highlight_keywords(master))
+
+
 # =====================================
 # The whole GUI declaration
 class App(tkinter.Tk):
@@ -159,17 +179,20 @@ class App(tkinter.Tk):
 
         # Editor Pane with scroll bar
         self.editor_pane_scrollbar = tkinter.Scrollbar(self)
-        self.editor = Text(bg='#3C3F41', fg='#F7F7F7', font=("Courier", FONT_SIZE), height=100, width=120,
+        self.editor = Text(bg='#3C3F41', fg='#F7F7F7', font=("Courier", FONT_SIZE), height=100, width=200,
                            insertbackground='white', undo=True, yscrollcommand=self.editor_pane_scrollbar.set)
 
         self.editor_pane_scrollbar.config(command=self.editor.yview)
         self.editor_pane_scrollbar.pack(side=RIGHT, fill=Y)
         self.editor.pack(side=TOP, fill=X, expand=True)
-
-        scrollb = tkinter.Scrollbar(self, command=self.editor.yview)
-        self.editor['yscrollcommand'] = scrollb.set
-
         self.config(menu=self.menu_bar)
+
+        # Create tags to color some parts of the code or output
+        self.code_output.tag_config("error", foreground="#D16B57")
+        self.editor.tag_config("test_tag", foreground="blue")
+
+        self.after(1000, highlight_keywords(self))
+        print("imout")
 
 
 # main
