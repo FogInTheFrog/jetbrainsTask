@@ -4,8 +4,6 @@ from tkinter.filedialog import asksaveasfilename, askopenfilename
 import threading
 import subprocess
 
-OPENED_FILE_PATH = ''
-FONT_SIZE = 12
 TAB_WIDTH = '1c'
 
 
@@ -24,7 +22,7 @@ class Task(threading.Thread):
 def run(master):
     code = master.editor.get('1.0', END)
     update_status_bar(master, "Compiling...")
-    if not is_opened_file_set():
+    if not is_opened_file_set(master):
         save_prompt = Toplevel()
         text = Label(save_prompt, text='Please save your code before running it')
         text.pack()
@@ -56,17 +54,12 @@ def clear_code_output(master):
     master.code_output.config(state=DISABLED)
 
 
-def update_currently_opened_file(path):
-    global OPENED_FILE_PATH
-    OPENED_FILE_PATH = path
+def update_currently_opened_file(path, master):
+    master.ENV_OPENED_FILE_PATH = path
 
 
-def is_opened_file_set():
-    global OPENED_FILE_PATH
-    if OPENED_FILE_PATH == '':
-        return False
-
-    return True
+def is_opened_file_set(master):
+    return master.ENV_OPENED_FILE_PATH == ''
 
 
 def update_status_bar(master, new_status: str):
@@ -85,7 +78,7 @@ def open_file(master):
     if OPENED_FILE_PATH == path:
         return
 
-    update_currently_opened_file(path)
+    update_currently_opened_file(path, master)
     with open(path, 'r') as file:
         code = file.read()
         master.editor.delete('1.0', END)
@@ -105,7 +98,7 @@ def save_as(master):
     try:
         path = asksaveasfilename(defaultextension=".kts", filetypes=[("Kotlin Files", "*.kts")])
         do_save_code_to_path(path, master)
-        update_currently_opened_file(path)
+        update_currently_opened_file(path, master)
     except FileNotFoundError as e:
         print(e.__repr__())
         # TODO: alert error
@@ -147,14 +140,16 @@ class App(tkinter.Tk):
         super().__init__()
 
         self.title('AppCode Student Test Task')
-        # compiler.attributes("-fullscreen", True)
         self.geometry("1200x720")
-        # compiler.resizable(False, False)
+
+        # App env variables
+        self.ENV_OPENED_FILE_PATH = ''
+        self.ENV_FONT_SIZE = 12
 
         # Menu bar at the top
         self.menu_bar = Menu(self)
 
-        # File button
+        # Create File button in Menu bar and its options
         self.file_menu = Menu(self.menu_bar, tearoff=0)
         self.file_menu.add_command(label='New', command=new_file)
         self.file_menu.add_command(label='Open', command=lambda: open_file(self))
@@ -174,12 +169,12 @@ class App(tkinter.Tk):
 
         # Code output pane
         self.code_output = Text()
-        self.code_output.config(state=DISABLED, bg='#2B2B2B', fg='#F7F7F7', font=("Courier", FONT_SIZE), height=10)
+        self.code_output.config(state=DISABLED, bg='#2B2B2B', fg='#F7F7F7', font=("Courier", self.ENV_FONT_SIZE), height=10)
         self.code_output.pack(side=BOTTOM, fill=X)
 
         # Editor Pane with scroll bar
         self.editor_pane_scrollbar = tkinter.Scrollbar(self)
-        self.editor = Text(bg='#3C3F41', fg='#F7F7F7', font=("Courier", FONT_SIZE), height=100, width=200,
+        self.editor = Text(bg='#3C3F41', fg='#F7F7F7', font=("Courier", self.ENV_FONT_SIZE), height=100, width=200,
                            insertbackground='white', undo=True, yscrollcommand=self.editor_pane_scrollbar.set)
 
         self.editor_pane_scrollbar.config(command=self.editor.yview)
