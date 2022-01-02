@@ -3,6 +3,7 @@ from tkinter.filedialog import asksaveasfilename, askopenfilename
 import subprocess
 
 OPENED_FILE_PATH = ''
+FONT_SIZE = 12
 
 
 # =====================================
@@ -14,11 +15,19 @@ def run():
         text = Label(save_prompt, text='Please save your code before running it')
         text.pack()
         return
+    # TODO: Communicates to appear here what script is doing
+    clear_code_output()
     command = f'kotlinc -script {OPENED_FILE_PATH}'
     process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
     output, error = process.communicate()
+    code_output.config(state=NORMAL)
     code_output.insert('1.0', output)
     code_output.insert('1.0', error)
+    code_output.config(state=DISABLED)
+
+
+def clear_code_output():
+    code_output.delete('1.0', END)
 
 
 def update_currently_opened_file(path):
@@ -89,6 +98,9 @@ def new_file():
 # The whole GUI declaration
 compiler = Tk()
 compiler.title('AppCode Student Test Task')
+# compiler.attributes("-fullscreen", True)
+compiler.geometry("1200x720")
+# compiler.resizable(False, False)
 
 # Menu bar at the top
 menu_bar = Menu(compiler)
@@ -102,18 +114,26 @@ file_menu.add_command(label='Save As', command=save_as)
 file_menu.add_command(label='Exit', command=exit)
 menu_bar.add_cascade(label='File', menu=file_menu)
 
+# Status bar
+status = Label(compiler, height=1, text="Ready    ", bd=2, relief=FLAT, anchor=E)
+status.pack(side=BOTTOM, fill=X)
+
 # Run code button
 run_bar = Menu(menu_bar, tearoff=0)
 run_bar.add_command(label='Run', command=run)
 menu_bar.add_cascade(label='Run', menu=run_bar)
 
-# Editor Pane
-editor = Text()
-editor.pack()
-
 # Code output pane
 code_output = Text()
-code_output.pack()
+code_output.config(state=DISABLED, bg='#2B2B2B', fg='#F7F7F7', font=("Courier", FONT_SIZE), height=10)
+code_output.pack(side=BOTTOM, fill=X)
+
+# Editor Pane
+editor = Text(bg='#3C3F41', fg='#F7F7F7', font=("Courier", FONT_SIZE), height=100, width=120)
+editor.pack(side=TOP, fill=X, expand=True)
+
+
+
 
 # Main
 compiler.config(menu=menu_bar)
