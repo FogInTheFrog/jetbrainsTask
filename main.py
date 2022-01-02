@@ -19,15 +19,21 @@ def run():
     clear_code_output()
     command = f'kotlinc -script {OPENED_FILE_PATH}'
     process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
-    output, error = process.communicate()
     code_output.config(state=NORMAL)
-    code_output.insert('1.0', output)
-    code_output.insert('1.0', error)
+    for c in iter(lambda: process.stdout.read(1), b''):
+
+        code_output.insert(END, c)
+
+    for c in iter(lambda: process.stderr.read(1), b''):
+        code_output.insert(END, c)
+
     code_output.config(state=DISABLED)
 
 
 def clear_code_output():
+    code_output.config(state=NORMAL)
     code_output.delete('1.0', END)
+    code_output.config(state=DISABLED)
 
 
 def update_currently_opened_file(path):
@@ -93,7 +99,6 @@ def settings():
 def new_file():
     print("Not implemented new_file")
 
-
 # =====================================
 # The whole GUI declaration
 compiler = Tk()
@@ -120,7 +125,9 @@ status.pack(side=BOTTOM, fill=X)
 
 # Run code button
 run_bar = Menu(menu_bar, tearoff=0)
-run_bar.add_command(label='Run', command=run)
+
+from threading import Thread
+run_bar.add_command(label='Run', command=Thread(target=run).start)
 menu_bar.add_cascade(label='Run', menu=run_bar)
 
 # Code output pane
@@ -131,8 +138,6 @@ code_output.pack(side=BOTTOM, fill=X)
 # Editor Pane
 editor = Text(bg='#3C3F41', fg='#F7F7F7', font=("Courier", FONT_SIZE), height=100, width=120)
 editor.pack(side=TOP, fill=X, expand=True)
-
-
 
 
 # Main
