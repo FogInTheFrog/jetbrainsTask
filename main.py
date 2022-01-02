@@ -1,6 +1,7 @@
 import tkinter
 from tkinter import *
 from tkinter.filedialog import asksaveasfilename, askopenfilename
+from kotlin_keywords import exact_keyword
 import threading
 import subprocess
 
@@ -99,10 +100,14 @@ def open_file(master):
         return
 
     update_currently_opened_file(path, master)
-    with open(path, 'r') as file:
-        clear_editor_pane(master)
-        code = file.read()
-        fill_editor_pane(master, code)
+    try:
+        with open(path, 'r') as file:
+            clear_editor_pane(master)
+            code = file.read()
+            fill_editor_pane(master, code)
+    except FileNotFoundError:
+        update_status_bar(master, "No file opened")
+        return
 
 
 # Allows user to save the content of editor pane to a file. Behaviour depends on
@@ -136,7 +141,7 @@ def do_save_code_to_path(path, master):
 
 # Settings: font, font size, background color, font color...
 def settings():
-    # TODO: to implement
+    # TODO: to implement some day maybe
     print("Not implemented settings")
 
 
@@ -148,15 +153,25 @@ def new_file(master):
 
 # Performs highlighting of the code, should be called every t milliseconds to highlight keywords in the code.
 def highlight_keywords(master):
-    master.editor.tag_delete("test_tag")
-    master.editor.tag_add("test_tag", "1.10", "1.150")
-    master.editor.tag_config("test_tag", background="blue", foreground="red")
+    master.editor.tag_config("test_tag", foreground="#E98400")
 
-    # Print cursor position in editor pane
-    try:
-        print(master.editor.index(INSERT))
-    except tkinter.TclError:
-        pass
+    start_index = '1.0'
+    while True:
+        match_length = IntVar()
+        index = master.editor.search(pattern=exact_keyword('for'), exact=True, count=match_length, index=start_index,
+                                     regexp=True, forwards=True, stopindex=END)
+        print(index, match_length.get())
+
+        if index == '':
+            break
+        if match_length.get() == 0:
+            break
+
+        index_split = str(index).split('.')
+        row, column = index_split[0], index_split[1]
+        end_index = row + '.' + str(int(column) + match_length.get())
+        master.editor.tag_add("test_tag", index, end_index)
+        start_index = end_index
 
     # https://stackoverflow.com/questions/459083/how-do-you-run-your-own-code-alongside-tkinters-event-loop
     master.after(master.ENV_RECOLORING_TIME, lambda: highlight_keywords(master))
