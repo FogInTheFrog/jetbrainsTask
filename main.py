@@ -212,15 +212,17 @@ class App(tkinter.Tk):
         self.menu_bar.add_cascade(label='Run', menu=self.run_bar)
 
         # Code output pane with vertical scroll bar
-        self.output_pane_scrollbar = tkinter.Scrollbar(self)
-        self.code_output = Text(state=DISABLED, bg=self.ENV_COLOR['dark-grey'], fg=self.ENV_COLOR['platinum'],
-                                font=(self.ENV_FONT_NAME, self.ENV_FONT_SIZE), height=10,
+        code_output_frame = Frame(self)
+        code_output_frame.pack(side=BOTTOM, fill=X)
+        self.output_pane_scrollbar = tkinter.Scrollbar(code_output_frame)
+        self.code_output = Text(code_output_frame, state=DISABLED, bg=self.ENV_COLOR['dark-grey'],
+                                fg=self.ENV_COLOR['platinum'], height=10,
+                                font=(self.ENV_FONT_NAME, self.ENV_FONT_SIZE),
                                 yscrollcommand=self.output_pane_scrollbar.set)
 
         self.output_pane_scrollbar.config(command=self.code_output.yview)
+        self.output_pane_scrollbar.pack(side=RIGHT, fill=Y)
         self.code_output.pack(side=BOTTOM, fill=X)
-        self.output_pane_scrollbar.pack(side=RIGHT, anchor="se", fill=Y)
-
 
         # Editor Pane with vertical scroll bar
         self.editor_pane_scrollbar = tkinter.Scrollbar(self)
@@ -239,7 +241,6 @@ class App(tkinter.Tk):
         self.editor.tag_config("test_tag", foreground="blue")
 
         highlight_keywords(self)
-        print("imout")
 
 
 # main
