@@ -1,39 +1,54 @@
+import tkinter
 from tkinter import *
 from tkinter.filedialog import asksaveasfilename, askopenfilename
+import threading
 import subprocess
 
 OPENED_FILE_PATH = ''
 FONT_SIZE = 12
 
 
+# https://stackoverflow.com/questions/54395358/tkinter-runtimeerror-threads-can-only-be-started-once
+class Task(threading.Thread):
+    def __init__(self, master, task):
+        threading.Thread.__init__(self, target=task, args=(master,))
+
+        if not hasattr(master, 'thread_run') or not master.thread_run.is_alive():
+            master.thread_run = self
+            self.start()
+
+
 # =====================================
 # Menu bar functions
-def run():
-    code = editor.get('1.0', END)
+def run(master):
+    code = master.editor.get('1.0', END)
     if not is_opened_file_set():
         save_prompt = Toplevel()
         text = Label(save_prompt, text='Please save your code before running it')
         text.pack()
         return
     # TODO: Communicates to appear here what script is doing
-    clear_code_output()
+    clear_code_output(master)
     command = f'kotlinc -script {OPENED_FILE_PATH}'
     process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
-    code_output.config(state=NORMAL)
+    master.code_output.config(state=NORMAL)
     for c in iter(lambda: process.stdout.read(1), b''):
 
-        code_output.insert(END, c)
+        master.code_output.insert(END, c)
 
     for c in iter(lambda: process.stderr.read(1), b''):
-        code_output.insert(END, c)
+        master.code_output.insert(END, c)
 
-    code_output.config(state=DISABLED)
+    master.code_output.config(state=DISABLED)
+    print("end of thread")
+    # process.kill()
+    # exit(0)
 
 
-def clear_code_output():
-    code_output.config(state=NORMAL)
-    code_output.delete('1.0', END)
-    code_output.config(state=DISABLED)
+def clear_code_output(master):
+    master.code_output.config(state=NORMAL)
+    master.code_output.delete('1.0', END)
+    master.code_output.config(state=DISABLED)
 
 
 def update_currently_opened_file(path):
@@ -50,9 +65,13 @@ def is_opened_file_set():
 
 
 # Opens file and sets global variable opened_file_path
-def open_file():
+def open_file(master):
     global OPENED_FILE_PATH
-    path = askopenfilename(filetypes=[("Kotlin Files", "*.kts")])
+    try:
+        path = askopenfilename(filetypes=[("Kotlin Files", "*.kts")])
+    except FileNotFoundError:
+        # TODO: alert it
+        return
 
     if OPENED_FILE_PATH == path:
         return
@@ -60,23 +79,23 @@ def open_file():
     update_currently_opened_file(path)
     with open(path, 'r') as file:
         code = file.read()
-        editor.delete('1.0', END)
-        editor.insert('1.0', code)
+        master.editor.delete('1.0', END)
+        master.editor.insert('1.0', code)
 
 
 # Behaviour depends on whether file is a new blank file or we edit existing saved file.
-def save():
+def save(master):
     if OPENED_FILE_PATH == '':
-        save_as()
+        save_as(master)
     else:
-        do_save_code_to_path(OPENED_FILE_PATH)
+        do_save_code_to_path(OPENED_FILE_PATH, master)
 
 
 # File browser pops up.
-def save_as():
+def save_as(master):
     try:
         path = asksaveasfilename(defaultextension=".kts", filetypes=[("Kotlin Files", "*.kts")])
-        do_save_code_to_path(path)
+        do_save_code_to_path(path, master)
         update_currently_opened_file(path)
     except FileNotFoundError as e:
         print(e.__repr__())
@@ -84,9 +103,9 @@ def save_as():
 
 
 # Auxiliary function
-def do_save_code_to_path(path):
+def do_save_code_to_path(path, master):
     with open(path, 'w') as file:
-        code = editor.get('1.0', END)
+        code = master.editor.get('1.0', END)
         file.write(code)
 
 
@@ -99,47 +118,51 @@ def settings():
 def new_file():
     print("Not implemented new_file")
 
+
 # =====================================
 # The whole GUI declaration
-compiler = Tk()
-compiler.title('AppCode Student Test Task')
-# compiler.attributes("-fullscreen", True)
-compiler.geometry("1200x720")
-# compiler.resizable(False, False)
+class App(tkinter.Tk):
+    def __init__(self):
+        super().__init__()
 
-# Menu bar at the top
-menu_bar = Menu(compiler)
+        self.title('AppCode Student Test Task')
+        # compiler.attributes("-fullscreen", True)
+        self.geometry("1200x720")
+        # compiler.resizable(False, False)
 
-# File button
-file_menu = Menu(menu_bar, tearoff=0)
-file_menu.add_command(label='New', command=new_file)
-file_menu.add_command(label='Open', command=open_file)
-file_menu.add_command(label='Save', command=save)
-file_menu.add_command(label='Save As', command=save_as)
-file_menu.add_command(label='Exit', command=exit)
-menu_bar.add_cascade(label='File', menu=file_menu)
+        # Menu bar at the top
+        self.menu_bar = Menu(self)
 
-# Status bar
-status = Label(compiler, height=1, text="Ready    ", bd=2, relief=FLAT, anchor=E)
-status.pack(side=BOTTOM, fill=X)
+        # File button
+        self.file_menu = Menu(self.menu_bar, tearoff=0)
+        self.file_menu.add_command(label='New', command=new_file)
+        self.file_menu.add_command(label='Open', command=lambda: open_file(self))
+        self.file_menu.add_command(label='Save', command=lambda: save(self))
+        self.file_menu.add_command(label='Save As', command=lambda: save_as(self))
+        self.file_menu.add_command(label='Exit', command=exit)
+        self.menu_bar.add_cascade(label='File', menu=self.file_menu)
 
-# Run code button
-run_bar = Menu(menu_bar, tearoff=0)
+        # Status bar
+        self.status = Label(self, height=1, text="Ready    ", bd=2, relief=FLAT, anchor=E)
+        self.status.pack(side=BOTTOM, fill=X)
 
-from threading import Thread
-run_bar.add_command(label='Run', command=Thread(target=run).start)
-menu_bar.add_cascade(label='Run', menu=run_bar)
+        # Run code button
+        self.run_bar = Menu(self.menu_bar, tearoff=0)
+        self.run_bar.add_command(label='Run', command=lambda: Task(self, run))
+        self.menu_bar.add_cascade(label='Run', menu=self.run_bar)
 
-# Code output pane
-code_output = Text()
-code_output.config(state=DISABLED, bg='#2B2B2B', fg='#F7F7F7', font=("Courier", FONT_SIZE), height=10)
-code_output.pack(side=BOTTOM, fill=X)
+        # Code output pane
+        self.code_output = Text()
+        self.code_output.config(state=DISABLED, bg='#2B2B2B', fg='#F7F7F7', font=("Courier", FONT_SIZE), height=10)
+        self.code_output.pack(side=BOTTOM, fill=X)
 
-# Editor Pane
-editor = Text(bg='#3C3F41', fg='#F7F7F7', font=("Courier", FONT_SIZE), height=100, width=120)
-editor.pack(side=TOP, fill=X, expand=True)
+        # Editor Pane
+        self.editor = Text(bg='#3C3F41', fg='#F7F7F7', font=("Courier", FONT_SIZE), height=100, width=120)
+        self.editor.pack(side=TOP, fill=X, expand=True)
+
+        self.config(menu=self.menu_bar)
 
 
-# Main
-compiler.config(menu=menu_bar)
-compiler.mainloop()
+# main
+if __name__ == "__main__":
+    App().mainloop()
