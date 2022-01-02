@@ -158,17 +158,21 @@ class App(tkinter.Tk):
         self.code_output.pack(side=BOTTOM, fill=X)
 
         # Editor Pane with scroll bar
-        self.editor_pane_scrollbar = tkinter.Scrollbar(self)
-        self.editor = Text(bg='#3C3F41', fg='#F7F7F7', font=("Courier", FONT_SIZE), height=100, width=120,
-                           insertbackground='white', undo=True, yscrollcommand=self.editor_pane_scrollbar.set)
+        # First we create a main frame
+        self.main_frame = Frame(self)
+        self.main_frame.pack(fill=BOTH, expand=1)
 
-        self.editor_pane_scrollbar.config(command=self.editor.yview)
+        # Create an editor pane
+        self.editor = Text(self.main_frame, bg='#3C3F41', fg='#F7F7F7', font=("Courier", FONT_SIZE), height=100,
+                           width=120, insertbackground='white', undo=True)
+        self.editor.pack(side=LEFT, fill=BOTH, expand=1)
+
+        # Create scrollbar attached to main_frame
+        self.editor_pane_scrollbar = tkinter.Scrollbar(self.main_frame, orient=VERTICAL, command=self.editor.yview)
         self.editor_pane_scrollbar.pack(side=RIGHT, fill=Y)
-        self.editor.pack(side=TOP, fill=X, expand=True)
 
-        scrollb = tkinter.Scrollbar(self, command=self.editor.yview)
-        self.editor['yscrollcommand'] = scrollb.set
-
+        # Configure Editor
+        self.editor.configure(yscrollcommand=self.editor_pane_scrollbar.set)
         self.config(menu=self.menu_bar)
 
 
