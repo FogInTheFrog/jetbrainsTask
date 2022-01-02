@@ -6,6 +6,7 @@ import subprocess
 
 OPENED_FILE_PATH = ''
 FONT_SIZE = 12
+TAB_WIDTH = '1c'
 
 
 # https://stackoverflow.com/questions/54395358/tkinter-runtimeerror-threads-can-only-be-started-once
@@ -156,9 +157,17 @@ class App(tkinter.Tk):
         self.code_output.config(state=DISABLED, bg='#2B2B2B', fg='#F7F7F7', font=("Courier", FONT_SIZE), height=10)
         self.code_output.pack(side=BOTTOM, fill=X)
 
-        # Editor Pane
-        self.editor = Text(bg='#3C3F41', fg='#F7F7F7', font=("Courier", FONT_SIZE), height=100, width=120)
+        # Editor Pane with scroll bar
+        self.editor_pane_scrollbar = tkinter.Scrollbar(self)
+        self.editor = Text(bg='#3C3F41', fg='#F7F7F7', font=("Courier", FONT_SIZE), height=100, width=120,
+                           insertbackground='white', undo=True, yscrollcommand=self.editor_pane_scrollbar.set)
+
+        self.editor_pane_scrollbar.config(command=self.editor.yview)
+        self.editor_pane_scrollbar.pack(side=RIGHT, fill=Y)
         self.editor.pack(side=TOP, fill=X, expand=True)
+
+        scrollb = tkinter.Scrollbar(self, command=self.editor.yview)
+        self.editor['yscrollcommand'] = scrollb.set
 
         self.config(menu=self.menu_bar)
 
