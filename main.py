@@ -1,12 +1,13 @@
 import datetime
 import tkinter
-from datetime import time
 from tkinter import *
 from tkinter.filedialog import asksaveasfilename, askopenfilename
 from tkinter.ttk import Progressbar as Progressbar
 from kotlin_keywords import exact_keyword
 import threading
 import subprocess
+import os
+import re
 
 
 # Function manages threads created to run code. Prevents code to be run twice at the same time.
@@ -43,6 +44,35 @@ def alert_user_to_save_code(master):
     update_status_bar(master, "Unable to run code...")
 
 
+# Moves cursor in code editor to place where error appeared
+def move_cursor_to_position(event, tag):
+    print(tag)
+
+
+# Makes location of errors clickable
+def make_error_location_clickable(master, error):
+    file_name = os.path.basename(master.ENV_OPENED_FILE_PATH)
+    file_name_regex = file_name.replace('.', r'\.') + r":[\d]+:[\d]+"
+
+    unclickable_parts = re.split(file_name_regex, ' ' + error)
+    clickable_parts = re.findall(file_name_regex, error)
+
+    for i in range(unclickable_parts.__len__()):
+        master.code_output.insert(END, unclickable_parts[i], 'error')
+
+        if i < clickable_parts.__len__():
+            tmp_error = clickable_parts[i]
+            tmp_error_split = tmp_error.split(':')
+            row, column = tmp_error_split[1], tmp_error_split[2]
+            new_tag = row + ':' + column
+            master.code_output.tag_config(new_tag, foreground=master.ENV_COLOR['new-york-pink'], underline=True,
+                                          underlinefg=master.ENV_COLOR['new-york-pink'])
+            master.code_output.tag_bind(new_tag, "<Button-1>", lambda e: move_cursor_to_position(e, new_tag))
+            master.code_output.insert(END, tmp_error, new_tag)
+
+    master.code_output.config(state=DISABLED)  # disable writing to output pane
+
+
 # Function runs code under chosen path in extra process. To prevent app freezing, this
 # function should be called by a new thread.
 def run(master, clear_output_before_execution, before_run_message):
@@ -68,17 +98,20 @@ def run(master, clear_output_before_execution, before_run_message):
     master.code_output.config(state=NORMAL)  # enable writing to output pane
     # Print starting message
     if before_run_message != '':
-        master.code_output.insert(END, before_run_message)
+        master.code_output.insert(END, before_run_message, 'ide')
 
     # Read standard output from pipe and live print it to output pane
     for c in iter(lambda: process.stdout.read(1), b''):
         master.code_output.insert(END, c)
 
     # Read error output from pipe and live print it to output pane
+    error_output = ''
     for c in iter(lambda: process.stderr.read(1), b''):
-        master.code_output.insert(END, c, 'error')
+        error_output += c.decode("utf-8")
 
-    master.code_output.config(state=DISABLED)  # disable writing to output pane
+    make_error_location_clickable(master, error_output)
+    # master.code_output.insert(END, error_output, 'error')
+    # master.code_output.config(state=DISABLED)  # disable writing to output pane
 
     # Print return code of the script to status bar
     return_code = process.poll()
@@ -197,7 +230,8 @@ def run_multiple_times(master):
 
     # Print starting message
     master.code_output.config(state=NORMAL)  # enable writing to output pane
-    master.code_output.insert(END, f"({master.ENV_APP_NAME}) Start execution of file: {master.ENV_OPENED_FILE_PATH}")
+    master.code_output.insert(END, f"({master.ENV_APP_NAME}) Start execution of file: {master.ENV_OPENED_FILE_PATH}",
+                              'ide')
     master.code_output.config(state=NORMAL)
 
     # Make progressbar window appear
@@ -400,6 +434,7 @@ class App(tkinter.Tk):
 
         # Create tags to color some parts of the code or output
         self.code_output.tag_config("error", foreground=self.ENV_COLOR['new-york-pink'])
+        self.code_output.tag_config("ide", foreground='green')
 
         highlight_keywords(self)
 
