@@ -172,12 +172,6 @@ def do_save_code_to_path(path, master):
         file.write(code)
 
 
-# Settings: font, font size, background color, font color...
-def settings():
-    # TODO: to implement some day maybe
-    print("Not implemented settings")
-
-
 # Creates new blank project. Any unsaved changes will be permanently lost.
 def new_file(master):
     master.ENV_OPENED_FILE_PATH = ''
@@ -210,7 +204,6 @@ def run_multiple_times(master):
     progress_window = ProgressBarWindow(master)
 
     time_estimation_in_milliseconds = 10000  # set this variable to Any nonzero value, because of ZeroDivisionError
-    total_time_spent_in_milliseconds = 0  # time spent on executing script n times
 
     for i in range(number_of_executions):
         start_time = datetime.datetime.now()
