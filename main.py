@@ -9,29 +9,49 @@ import subprocess
 # Function manages threads created to run code. Prevents code to be run twice at the same time.
 # https://stackoverflow.com/questions/54395358/tkinter-runtimeerror-threads-can-only-be-started-once
 class Task(threading.Thread):
-    def __init__(self, master, task):
-        threading.Thread.__init__(self, target=task, args=(master,))
+    def __init__(self, master, task, clear_output_before_execution, before_run_message):
+        threading.Thread.__init__(self, target=task, args=(master, clear_output_before_execution, before_run_message,))
 
         if not hasattr(master, 'thread_run') or not master.thread_run.is_alive():
             master.thread_run = self
             self.start()
 
 
+# Function manages to run threads, only after previous run ends
+class TaskToRunSimultaneously(threading.Thread):
+    def __init__(self, master, task):
+        threading.Thread.__init__(self, target=task, args=(master,))
+
+        clear_output_pane(master)
+
+        if not is_path_to_file_set(master):
+            alert_user_to_save_code(master)
+
+        elif not hasattr(master, 'thread_run_multiple_times') or not master.thread_run_multiple_times.is_alive():
+            master.thread_run_multiple_times = self
+            self.start()
+
+
+# Window pops up informing user to save file
+def alert_user_to_save_code(master):
+    save_prompt = Toplevel(height=200, width=300)
+    text = Label(save_prompt, text='Please save your code before running it', height=6, width=40)
+    text.pack()
+    update_status_bar(master, "Unable to run code...")
+
+
 # Function runs code under chosen path in extra process. To prevent app freezing, this
 # function should be called by a new thread.
-def run(master):
+def run(master, clear_output_before_execution, before_run_message):
     update_status_bar(master, "Compiling...")
 
     # If the file to run is not selected pop up window appears and function returns.
     if not is_path_to_file_set(master):
-        save_prompt = Toplevel(height=200, width=300)
-        text = Label(save_prompt, text='Please save your code before running it', height=6, width=40)
-        text.pack()
-        update_status_bar(master, "Unable to run code...")
-        return
+        alert_user_to_save_code(master)
 
     # Clear all the output from the previous run
-    clear_output_pane(master)
+    if clear_output_before_execution:
+        clear_output_pane(master)
 
     update_status_bar(master, "Running...")
 
@@ -41,8 +61,13 @@ def run(master):
     command = f'kotlinc -script {master.ENV_OPENED_FILE_PATH}'
     process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
 
-    # Read standard output from pipe and live print it to output pane
+    # Print to output pane
     master.code_output.config(state=NORMAL)  # enable writing to output pane
+    # Print starting message
+    if before_run_message != '':
+        master.code_output.insert(END, before_run_message)
+
+    # Read standard output from pipe and live print it to output pane
     for c in iter(lambda: process.stdout.read(1), b''):
         master.code_output.insert(END, c)
 
@@ -116,9 +141,13 @@ def open_file(master):
 # window pops up and we can select the location where we want to save our file.
 def save(master):
     if not is_path_to_file_set(master):
-        save_as(master)
+        return save_as(master)
     else:
-        do_save_code_to_path(master.ENV_OPENED_FILE_PATH, master)
+        try:
+            do_save_code_to_path(master.ENV_OPENED_FILE_PATH, master)
+            return True
+        except FileNotFoundError:
+            return False
 
 
 # Allows user to save the content of editor pane to a file. File browser pops up, so
@@ -128,8 +157,9 @@ def save_as(master):
         path = asksaveasfilename(defaultextension=".kts", filetypes=[("Kotlin Files", "*.kts")])
         do_save_code_to_path(path, master)
         update_currently_opened_file(path, master)
+        return True
     except FileNotFoundError as e:
-        print(e.__repr__())
+        return False
 
 
 # Auxiliary function to fill file under given path with the content of editor pane.
@@ -149,6 +179,35 @@ def settings():
 def new_file(master):
     master.ENV_OPENED_FILE_PATH = ''
     clear_editor_pane(master)
+
+
+# Saves file and runs code
+def save_and_run(master):
+    if save(master):
+        Task(master, run, True, "")
+
+
+# Runs code multiple times
+def run_multiple_times(master):
+    popup_window = AskForNumberOfRunsWindow(master)
+    master.wait_window(popup_window.top_window)
+
+    try:
+        number_of_times = int(popup_window.number_of_executions)
+    except ValueError:
+        update_status_bar(master, "You have to put Integer to input box...    ")
+        return
+
+    for i in range(number_of_times):
+        Task(master, run, False, f"\nScript execution number: {i + 1}/{number_of_times}:\n\n")
+        while master.thread_run.is_alive():
+            master.thread_run.join(0.2)
+
+
+# Runs code multiple times only if save was successful
+def save_and_run_multiple_times(master):
+    if save(master):
+        TaskToRunSimultaneously(master, run_multiple_times)
 
 
 # Performs highlighting of the code, should be called every t milliseconds to highlight keywords in the code.
@@ -175,6 +234,23 @@ def highlight_keywords(master):
 
     # https://stackoverflow.com/questions/459083/how-do-you-run-your-own-code-alongside-tkinters-event-loop
     master.after(master.ENV_RECOLORING_TIME, lambda: highlight_keywords(master))
+
+
+#  Asks user for an integer which is the number of times to run script
+class AskForNumberOfRunsWindow(object):
+    def __init__(self, master):
+        self.top_window = Toplevel(master)
+        self.message = Label(self.top_window, text="How many times to run the script?")
+        self.message.pack()
+        self.input_box = Entry(self.top_window)
+        self.input_box.pack()
+        self.button_box = Button(self.top_window, text='Run code', command=self.cleanup)
+        self.button_box.pack()
+        self.number_of_executions = 0
+
+    def cleanup(self):
+        self.number_of_executions = self.input_box.get()
+        self.top_window.destroy()
 
 
 # =====================================
@@ -223,7 +299,12 @@ class App(tkinter.Tk):
 
         # Create run button in Menu bar
         self.run_bar = Menu(self.menu_bar, tearoff=0)
-        self.run_bar.add_command(label='Run', command=lambda: Task(self, run))
+        self.run_bar.add_command(label='Run', command=lambda: Task(self, run, True, ""))
+        self.run_bar.add_command(label='Save & Run', command=lambda: save_and_run(self))
+        self.run_bar.add_command(label='Run Multiple Times',
+                                 command=lambda: TaskToRunSimultaneously(self, run_multiple_times))
+        self.run_bar.add_command(label='Save & Run Multiple Times',
+                                 command=lambda: save_and_run_multiple_times(self))
         self.menu_bar.add_cascade(label='Run', menu=self.run_bar)
 
         # Code output pane with vertical scroll bar
