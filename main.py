@@ -1,6 +1,9 @@
+import datetime
 import tkinter
+from datetime import time
 from tkinter import *
 from tkinter.filedialog import asksaveasfilename, askopenfilename
+from tkinter.ttk import Progressbar as Progressbar
 from kotlin_keywords import exact_keyword
 import threading
 import subprocess
@@ -193,15 +196,66 @@ def run_multiple_times(master):
     master.wait_window(popup_window.top_window)
 
     try:
-        number_of_times = int(popup_window.number_of_executions)
+        number_of_executions = int(popup_window.number_of_executions)
     except ValueError:
         update_status_bar(master, "You have to put Integer to input box...    ")
         return
 
-    for i in range(number_of_times):
-        Task(master, run, False, f"\nScript execution number: {i + 1}/{number_of_times}:\n\n")
+    # Print starting message
+    master.code_output.config(state=NORMAL)  # enable writing to output pane
+    master.code_output.insert(END, f"({master.ENV_APP_NAME}) Start execution of file: {master.ENV_OPENED_FILE_PATH}")
+    master.code_output.config(state=NORMAL)
+
+    # Make progressbar window appear
+    progress_window = ProgressBarWindow(master)
+
+    time_estimation_in_milliseconds = 10000  # set this variable to Any nonzero value, because of ZeroDivisionError
+    total_time_spent_in_milliseconds = 0  # time spent on executing script n times
+
+    for i in range(number_of_executions):
+        start_time = datetime.datetime.now()
+        Task(master, run, False,
+             f"\n({master.ENV_APP_NAME}) Script execution number: {i + 1}/{number_of_executions}:\n\n")
+
+        # Wait until function finishes
         while master.thread_run.is_alive():
+            # As we want to live update progress bar we need to measure the time during script execution
+            time_now = datetime.datetime.now()
+            delta_time = (time_now - start_time).total_seconds() * 1000
+
+            # Percentage_progress in i-th iteration
+            # is in range [i / number_of_executions, (i + 1) / number_of_executions]
+            percentage_progress = i / number_of_executions + \
+                                  min(delta_time / time_estimation_in_milliseconds, 1) * (1 / number_of_executions)
+
+            time_left = time_estimation_in_milliseconds * (number_of_executions - i) - \
+                        min(delta_time, time_estimation_in_milliseconds)
+
+            # We use try except clause, in case when user closes the progress bar window,
+            # function won't stop executing our script
+            try:
+                progress_window.update_bar(percentage_progress * 100, time_left / 1000)
+            except Exception:
+                pass
+
+            # Wait on join for thread executing script to finish
             master.thread_run.join(0.2)
+
+        end_time = datetime.datetime.now()
+        elapsed_time_in_milliseconds = int((end_time - start_time).total_seconds() * 1000)
+
+        # Every new sample (measurement) is weighted 50% of new time estimation, so
+        # time_estimation (E) in k-th iteration where t_1, ..., t_k are measured times is:
+        # E = t_1 * (2 ** (-k)) + t_2 * (2 ** (-k + 1)) + ... + t_k * (2 ** (-1))
+        if i == 0:
+            time_estimation_in_milliseconds = elapsed_time_in_milliseconds
+        else:
+            time_estimation_in_milliseconds = (time_estimation_in_milliseconds + elapsed_time_in_milliseconds) / 2
+
+    try:
+        progress_window.cleanup()
+    except Exception:
+        pass
 
 
 # Runs code multiple times only if save was successful
@@ -219,7 +273,6 @@ def highlight_keywords(master):
         match_length = IntVar()
         index = master.editor.search(pattern=exact_keyword('for'), exact=True, count=match_length, index=start_index,
                                      regexp=True, forwards=True, stopindex=END)
-        print(index, match_length.get())
 
         if index == '':
             break
@@ -241,15 +294,36 @@ class AskForNumberOfRunsWindow(object):
     def __init__(self, master):
         self.top_window = Toplevel(master)
         self.message = Label(self.top_window, text="How many times to run the script?")
-        self.message.pack()
+        self.message.pack(pady=20)
         self.input_box = Entry(self.top_window)
-        self.input_box.pack()
+        self.input_box.pack(pady=20)
         self.button_box = Button(self.top_window, text='Run code', command=self.cleanup)
         self.button_box.pack()
         self.number_of_executions = 0
 
     def cleanup(self):
         self.number_of_executions = self.input_box.get()
+        self.top_window.destroy()
+
+
+#  Asks user for an integer which is the number of times to run script
+class ProgressBarWindow(object):
+    def __init__(self, master):
+        self.top_window = Toplevel(master)
+        self.message = Label(self.top_window, text="Progress: 0%")
+        self.message.pack(pady=20)
+        self.my_progress_bar = Progressbar(self.top_window, orient=HORIZONTAL, length=400, mode='determinate')
+        self.my_progress_bar.pack()
+        self.my_progress_bar['value'] = 0
+        self.estimated_time = Label(self.top_window, text="Estimated time left: 0 seconds")
+        self.estimated_time.pack(pady=20)
+
+    def update_bar(self, percentage, time_left):
+        self.my_progress_bar['value'] = percentage
+        self.message['text'] = "Progress: " + "{:.2f}".format(round(percentage, 2)) + "%"
+        self.estimated_time['text'] = f"Estimated time left: {str(int(time_left))} seconds"
+
+    def cleanup(self):
         self.top_window.destroy()
 
 
@@ -277,9 +351,7 @@ class App(tkinter.Tk):
             'grey': '#3C3F41',
             'new-york-pink': '#D16B57'
         }
-        self.ENV_TAGS = {
-
-        }
+        self.ENV_APP_NAME = 'IDE'
 
         # Menu bar at the top
         self.menu_bar = Menu(self)
@@ -335,11 +407,14 @@ class App(tkinter.Tk):
 
         # Create tags to color some parts of the code or output
         self.code_output.tag_config("error", foreground=self.ENV_COLOR['new-york-pink'])
-        self.editor.tag_config("test_tag", foreground="blue")
 
         highlight_keywords(self)
 
 
+def main():
+    App().mainloop()
+
+
 # main
 if __name__ == "__main__":
-    App().mainloop()
+    main()
