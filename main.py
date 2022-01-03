@@ -45,8 +45,11 @@ def alert_user_to_save_code(master):
 
 
 # Moves cursor in code editor to place where error appeared
-def move_cursor_to_position(event, tag):
-    print(tag)
+def callback(tag, master):
+    master.editor.focus()
+    master.editor.mark_set("insert", tag)
+    master.editor.see("insert")
+    master.editor.focus()
 
 
 # Makes location of errors clickable
@@ -64,10 +67,14 @@ def make_error_location_clickable(master, error):
             tmp_error = clickable_parts[i]
             tmp_error_split = tmp_error.split(':')
             row, column = tmp_error_split[1], tmp_error_split[2]
-            new_tag = row + ':' + column
+            new_tag = row + '.' + column
+
             master.code_output.tag_config(new_tag, foreground=master.ENV_COLOR['new-york-pink'], underline=True,
                                           underlinefg=master.ENV_COLOR['new-york-pink'])
-            master.code_output.tag_bind(new_tag, "<Button-1>", lambda e: move_cursor_to_position(e, new_tag))
+            master.code_output.tag_bind(new_tag, "<Button-1>",
+                                        lambda e, new_tag_copy=new_tag: callback(new_tag_copy, master))
+
+            print("printed message is: ", tmp_error, " with tag:", new_tag, "END\n")
             master.code_output.insert(END, tmp_error, new_tag)
 
     master.code_output.config(state=DISABLED)  # disable writing to output pane
@@ -110,8 +117,6 @@ def run(master, clear_output_before_execution, before_run_message):
         error_output += c.decode("utf-8")
 
     make_error_location_clickable(master, error_output)
-    # master.code_output.insert(END, error_output, 'error')
-    # master.code_output.config(state=DISABLED)  # disable writing to output pane
 
     # Print return code of the script to status bar
     return_code = process.poll()
@@ -293,11 +298,13 @@ def save_and_run_multiple_times(master):
 
 # Performs highlighting of the code, should be called every t milliseconds to highlight keywords in the code.
 def highlight_keywords(master):
+    master.editor.tag_delete("test_tag")
     master.editor.tag_config("test_tag", foreground="#E98400")
 
     start_index = '1.0'
     while True:
         match_length = IntVar()
+
         index = master.editor.search(pattern=exact_keyword('for'), exact=True, count=match_length, index=start_index,
                                      regexp=True, forwards=True, stopindex=END)
 
@@ -371,7 +378,7 @@ class App(tkinter.Tk):
         self.ENV_OPENED_FILE_PATH = ''
         self.ENV_FONT_NAME = "Courier"
         self.ENV_FONT_SIZE = 12
-        self.ENV_RECOLORING_TIME = 5000  # time in milliseconds between recoloring
+        self.ENV_RECOLORING_TIME = 500  # time in milliseconds between recoloring
         self.ENV_COLOR = {
             'platinum': '#F7F7F7',
             'dark-grey': '#2B2B2B',
