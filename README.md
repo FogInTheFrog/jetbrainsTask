@@ -2,14 +2,15 @@
 Application is a GUI tool that allows users to enter a Kotlin script, execute it, and see its output side-by-side.
 
 ## Instructions to build and run
-Application was designed to work on Windows 10 64-bit, but should work fine on other systems too.
+Application was designed to work on Windows 10 64-bit, but should work fine on other systems too. For me it works on both Ubuntu 16.04 and Windows 10.
+
 ##### Requirements:
 1. python version at least 3.9.5
 2. installed kotlin cli compiler and added to path, so we can execute command: kotlinc -script foo.kts
 3. download this repository
 
 ##### Run:
-To run the application enter folder with main.py file and type in the terminal / cmd / console
+To run the application enter base directory with main.py file and type in the terminal / cmd / console
 ```
 python main.py
 ```
