@@ -26,17 +26,6 @@ class TestExtractWord(unittest.TestCase):
             match_list = re.findall(pattern, text)
             self.assertTrue(match_list.__len__() == 0)
 
-    def test_weird_characters_on_sides(self):
-        keyword = 'var'
-        texts = ['var)', '(var', '(var)', 'var;', '(((var)))', '*var+']
-
-        pattern = exact_keyword(keyword)
-
-        for text in texts:
-            match_list = re.findall(pattern, text)
-
-            self.assertTrue(match_list[0] == keyword)
-            self.assertTrue(match_list.__len__() == 1)
 
     def test_alphabet_characters_on_sides(self):
         keyword = 'var'

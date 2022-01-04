@@ -3,7 +3,7 @@
 
 # Changes msg to regex where msg is surrounded by at least one non-alphanumeric character
 def exact_keyword(msg):
-    return r'(?:(?<=^)|(?<=\W))(' + msg + r'?)(?=$|\W)'
+    return r'(?:^|\W)' + msg + r'(?:$|\W)'
 
 
 orange_colored = [
