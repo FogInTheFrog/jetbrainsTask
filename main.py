@@ -3,7 +3,7 @@ import tkinter
 from tkinter import *
 from tkinter.filedialog import asksaveasfilename, askopenfilename
 from tkinter.ttk import Progressbar as Progressbar
-from kotlin_keywords import exact_keyword
+from kotlin_keywords import orange_colored, blue_colored, green_colored, purple_colored, grey_colored, yellow_colored
 import threading
 import subprocess
 import os
@@ -45,7 +45,7 @@ def alert_user_to_save_code(master):
 
 
 # Moves cursor in code editor to place where error appeared
-def callback(tag, master):
+def move_cursor_to_location(tag, master):
     master.editor.focus()
     master.editor.mark_set("insert", tag)
     master.editor.see("insert")
@@ -67,14 +67,15 @@ def make_error_location_clickable(master, error):
             tmp_error = clickable_parts[i]
             tmp_error_split = tmp_error.split(':')
             row, column = tmp_error_split[1], tmp_error_split[2]
-            new_tag = row + '.' + column
+            new_tag = row + '.' + str(int(column) - 1)  # crucial to subtract - 1 as columns are numerated from 0
 
             master.code_output.tag_config(new_tag, foreground=master.ENV_COLOR['new-york-pink'], underline=True,
                                           underlinefg=master.ENV_COLOR['new-york-pink'])
-            master.code_output.tag_bind(new_tag, "<Button-1>",
-                                        lambda e, new_tag_copy=new_tag: callback(new_tag_copy, master))
 
-            print("printed message is: ", tmp_error, " with tag:", new_tag, "END\n")
+            # https://www.tutorialspoint.com/tkinter-binding-a-function-with-arguments-to-a-widget
+            master.code_output.tag_bind(new_tag, "<Button-1>",
+                                        lambda e, new_tag_copy=new_tag: move_cursor_to_location(new_tag_copy, master))
+
             master.code_output.insert(END, tmp_error, new_tag)
 
     master.code_output.config(state=DISABLED)  # disable writing to output pane
@@ -214,6 +215,7 @@ def do_save_code_to_path(path, master):
 def new_file(master):
     master.ENV_OPENED_FILE_PATH = ''
     clear_editor_pane(master)
+    clear_output_pane(master)
 
 
 # Saves file and runs code
@@ -297,30 +299,36 @@ def save_and_run_multiple_times(master):
 
 
 # Performs highlighting of the code, should be called every t milliseconds to highlight keywords in the code.
-def highlight_keywords(master):
-    master.editor.tag_delete("test_tag")
-    master.editor.tag_config("test_tag", foreground="#E98400")
+def highlight_keywords(master, list_of_words, color, is_important):
+    master.editor.tag_delete(color)
+    master.editor.tag_config(color, foreground=color)
 
-    start_index = '1.0'
-    while True:
-        match_length = IntVar()
+    if is_important:
+        master.editor.tag_raise(color)
+    else:
+        master.editor.tag_lower(color)
 
-        index = master.editor.search(pattern=exact_keyword('for'), exact=True, count=match_length, index=start_index,
-                                     regexp=True, forwards=True, stopindex=END)
+    for word in list_of_words:
+        start_index = '1.0'
+        while True:
+            match_length = IntVar()
 
-        if index == '':
-            break
-        if match_length.get() == 0:
-            break
+            index = master.editor.search(pattern=word, exact=True, count=match_length, index=start_index,
+                                         regexp=True, forwards=True, stopindex=END)
 
-        index_split = str(index).split('.')
-        row, column = index_split[0], index_split[1]
-        end_index = row + '.' + str(int(column) + match_length.get())
-        master.editor.tag_add("test_tag", index, end_index)
-        start_index = end_index
+            if index == '':
+                break
+            if match_length.get() == 0:
+                break
+
+            index_split = str(index).split('.')
+            row, column = index_split[0], index_split[1]
+            end_index = row + '.' + str(int(column) + match_length.get())
+            master.editor.tag_add(color, index, end_index)
+            start_index = end_index
 
     # https://stackoverflow.com/questions/459083/how-do-you-run-your-own-code-alongside-tkinters-event-loop
-    master.after(master.ENV_RECOLORING_TIME, lambda: highlight_keywords(master))
+    master.after(master.ENV_RECOLORING_TIME, lambda: highlight_keywords(master, list_of_words, color, is_important))
 
 
 #  Asks user for an integer which is the number of times to run script
@@ -443,13 +451,14 @@ class App(tkinter.Tk):
         self.code_output.tag_config("error", foreground=self.ENV_COLOR['new-york-pink'])
         self.code_output.tag_config("ide", foreground='green')
 
-        highlight_keywords(self)
-
-
-def main():
-    App().mainloop()
+        highlight_keywords(self, orange_colored[0], orange_colored[1], False)
+        highlight_keywords(self, purple_colored[0], purple_colored[1], False)
+        highlight_keywords(self, green_colored[0], green_colored[1], False)
+        highlight_keywords(self, blue_colored[0], blue_colored[1], False)
+        highlight_keywords(self, yellow_colored[0], yellow_colored[1], True)
+        highlight_keywords(self, grey_colored[0], grey_colored[1], True)
 
 
 # main
 if __name__ == "__main__":
-    main()
+    App().mainloop()
