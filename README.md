@@ -70,7 +70,7 @@ Underlined code segments are clickable. Clicking once, scrolls window to make ce
 
 #### As the script executes, we can see live output in the output pane and progress bar in new window moving with estimated time left:
 
-![](https://github.com/FogInTheFrog/jetbrainsTask/blob/master/screenshots/run-script-n-times.png)
+![](https://github.com/FogInTheFrog/jetbrainsTask/blob/master/screenshots/run-script-n-times-progressbar.png)
 
 #### Any time we can check our application run status in status bar
 
